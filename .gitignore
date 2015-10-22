@@ -1,0 +1,8 @@
+*.pyc
+codis.egg-info
+build/
+dist/
+.ropeproject/
+/.tox
+_build
+vagrant/.vagrant
