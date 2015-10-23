@@ -1,7 +1,9 @@
 pycodis
 =======
 
-The Python interface to the Codis proxy.
+The Python interface to the Codis proxy, used to implement auto-balance and auto-discovery of redis proxy.
+
+Considering we got used to connection redis with redis-py, we could just change the connection pool on the base of redis-py client.
 
 Installation
 ------------
