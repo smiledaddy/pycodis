@@ -4,7 +4,8 @@ import logging
 
 from redis import Connection
 from redis import BlockingConnectionPool
-from redis._compat import LifoQueue
+from redis._compat import LifoQueue, Full
+from redis.exceptions import ConnectionError
 
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KeeperState
@@ -57,7 +58,6 @@ class CodisConnectionPool(BlockingConnectionPool):
         @self.zk_client.ChildrenWatch(self.zk_proxy_dir, allow_session_lost=True, send_event=True)
         def proxyChanged(children, event):
             if event:
-                print 'receive zk proxy changed event: type=%s' % event.type
                 self.reset()
 
     def reset(self):
@@ -75,13 +75,15 @@ class CodisConnectionPool(BlockingConnectionPool):
                 addr = addr.split(':')
                 self.proxy_list.append((addr[0], int(addr[1])))
             except Exception, e:
-                print 'parse %s failed.(%s)' % (child, e)
+                raise ConnectionError("Error while parse zk proxy(%s): %s" %
+                                      (child, e.args))
 
     def make_connection(self):
         "Make a fresh random connection from proxy list."
         host, port = random.choice(self.proxy_list)
         self.connection_kwargs.update({'host': host, 'port': port})
         connection = self.connection_class(**self.connection_kwargs)
+        print "choose HostAndPort %s:%s from zk proxy path" % (host, port)
         self._connections.append(connection)
         return connection
 
@@ -90,10 +92,29 @@ class CodisConnectionPool(BlockingConnectionPool):
 
     def release(self, connection):
         "Release the connection back to the pool, meanwhile check validation"
-        if (connection.host, connection.port) in self.proxy_list:
-            super(CodisConnectionPool, self).release(connection)
-        else:
-            connection.disconnect()
+        discard = False
+        if (connection.host, connection.port) not in self.proxy_list:
+            discard = True
+
+        # Make sure we haven't changed process.
+        self._checkpid()
+        if connection.pid != self.pid:
+            return
+
+        # Put the connection back into the pool.
+        try:
+            if not discard:
+                self.pool.put_nowait(connection)
+                print "put connection %s:%s back to pool" % (connection.host, connection.port)
+            else:
+                connection.disconnect()
+                self._connections.remove(connection)
+                self.pool.put_nowait(None)
+                print "discard connection %s:%s" % (connection.host, connection.port)
+        except Full:
+            # perhaps the pool has been reset() after a fork? regardless,
+            # we don't want this connection
+            pass
 
     def disconnect(self):
         super(CodisConnectionPool, self).disconnect()
