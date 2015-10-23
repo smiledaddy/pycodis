@@ -8,4 +8,8 @@ setup(name='codis',
       author_email="neilshu.sx@gmail.com",
       packages=['codis'],
       include_package_data=True,
-      install_requires=[])
+      install_requires = [
+        'redis',
+        'kazoo'
+      ]
+)

@@ -119,7 +119,7 @@ class CodisConnectionPool(BlockingConnectionPool):
     def disconnect(self):
         super(CodisConnectionPool, self).disconnect()
         if self.auto_close_zk_client:
-            self.zk_client.close()
+            self.zk_client.stop()
 
     @staticmethod
     def create():
