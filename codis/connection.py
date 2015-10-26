@@ -58,11 +58,14 @@ class CodisConnectionPool(BlockingConnectionPool):
         @self.zk_client.ChildrenWatch(self.zk_proxy_dir, allow_session_lost=True, send_event=True)
         def proxyChanged(children, event):
             if event:
-                self.reset()
+                self._reset_zk()
 
     def reset(self):
         super(CodisConnectionPool, self).reset()
         # reset codis proxy list
+        self._reset_zk()
+
+    def _reset_zk(self):
         self.proxy_list = []
         for child in self.zk_client.get_children(self.zk_proxy_dir):
             try:
@@ -70,13 +73,17 @@ class CodisConnectionPool(BlockingConnectionPool):
                 data, stat = self.zk_client.get(child_path)
                 proxy_info = json.loads(data)
                 state, addr = proxy_info["state"], proxy_info["addr"]
-                if state != _CODIS_PROXY_STATE_ONLINE:
-                    continue
+                # if state != _CODIS_PROXY_STATE_ONLINE:
+                    # continue
+                    # a smart way here we should listen the new proxy state
+                    # util be changed to online
+                #     pass
                 addr = addr.split(':')
                 self.proxy_list.append((addr[0], int(addr[1])))
             except Exception, e:
                 raise ConnectionError("Error while parse zk proxy(%s): %s" %
                                       (child, e.args))
+        _LOGGER.info("got zk proxy list:%s" % self.proxy_list)
 
     def make_connection(self):
         "Make a fresh random connection from proxy list."
@@ -119,7 +126,8 @@ class CodisConnectionPool(BlockingConnectionPool):
     def disconnect(self):
         super(CodisConnectionPool, self).disconnect()
         if self.auto_close_zk_client:
-            self.zk_client.stop()
+            #self.zk_client.stop()
+            pass
 
     @staticmethod
     def create():
