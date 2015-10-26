@@ -47,6 +47,7 @@ class CodisConnectionPool(BlockingConnectionPool):
         self.queue_class = queue_class
         self.max_connections = max_connections
         self.timeout = timeout
+        self.proxy_list = []
 
         if self.zk_client.client_state == KeeperState.CLOSED:
             self.zk_client.start()
@@ -66,7 +67,7 @@ class CodisConnectionPool(BlockingConnectionPool):
         self._reset_zk()
 
     def _reset_zk(self):
-        self.proxy_list = []
+        tmp_list = []
         _LOGGER.info("reset zk proxy list...")
         for child in self.zk_client.get_children(self.zk_proxy_dir):
             try:
@@ -80,10 +81,11 @@ class CodisConnectionPool(BlockingConnectionPool):
                     # util be changed to online
                 #     pass
                 addr = addr.split(':')
-                self.proxy_list.append((addr[0], int(addr[1])))
+                tmp_list.append((addr[0], int(addr[1])))
             except Exception, e:
                 raise ConnectionError("Error while parse zk proxy(%s): %s" %
                                       (child, e.args))
+        self.proxy_list = tmp_list
         _LOGGER.info("got zk proxy list:%s" % self.proxy_list)
 
     def make_connection(self):
