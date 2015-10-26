@@ -1,6 +1,7 @@
 import unittest
 import redis
 import time
+import log_config
 from codis import CodisConnectionPool
 
 

@@ -67,6 +67,7 @@ class CodisConnectionPool(BlockingConnectionPool):
 
     def _reset_zk(self):
         self.proxy_list = []
+        _LOGGER.info("reset zk proxy list...")
         for child in self.zk_client.get_children(self.zk_proxy_dir):
             try:
                 child_path = '/'.join((self.zk_proxy_dir, child))
@@ -90,7 +91,7 @@ class CodisConnectionPool(BlockingConnectionPool):
         host, port = random.choice(self.proxy_list)
         self.connection_kwargs.update({'host': host, 'port': port})
         connection = self.connection_class(**self.connection_kwargs)
-        print "choose HostAndPort %s:%s from zk proxy path" % (host, port)
+        _LOGGER.debug("choose HostAndPort %s:%s from zk proxy path" % (host, port))
         self._connections.append(connection)
         return connection
 
@@ -112,12 +113,12 @@ class CodisConnectionPool(BlockingConnectionPool):
         try:
             if not discard:
                 self.pool.put_nowait(connection)
-                print "put connection %s:%s back to pool" % (connection.host, connection.port)
+                _LOGGER.debug("put connection %s:%s back to pool" % (connection.host, connection.port))
             else:
                 connection.disconnect()
                 self._connections.remove(connection)
                 self.pool.put_nowait(None)
-                print "discard connection %s:%s" % (connection.host, connection.port)
+                _LOGGER.warn("discard connection %s:%s" % (connection.host, connection.port))
         except Full:
             # perhaps the pool has been reset() after a fork? regardless,
             # we don't want this connection
