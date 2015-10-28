@@ -58,8 +58,9 @@ class CodisConnectionPool(BlockingConnectionPool):
     def _init_proxy_watcher(self):
         @self.zk_client.ChildrenWatch(self.zk_proxy_dir, allow_session_lost=True, send_event=True)
         def proxyChanged(children, event):
-            if event:
-                self._reset_zk()
+            _LOGGER.warn("proxy changed: %s, %s" % (children, event))
+            # if event:
+            self._reset_zk()
 
     def reset(self):
         super(CodisConnectionPool, self).reset()
@@ -68,7 +69,7 @@ class CodisConnectionPool(BlockingConnectionPool):
 
     def _reset_zk(self):
         tmp_list = []
-        _LOGGER.info("reset zk proxy list...")
+        _LOGGER.warn("reset zk proxy list...")
         for child in self.zk_client.get_children(self.zk_proxy_dir):
             try:
                 child_path = '/'.join((self.zk_proxy_dir, child))
@@ -86,7 +87,7 @@ class CodisConnectionPool(BlockingConnectionPool):
                 raise ConnectionError("Error while parse zk proxy(%s): %s" %
                                       (child, e.args))
         self.proxy_list = tmp_list
-        _LOGGER.info("got zk proxy list:%s" % self.proxy_list)
+        _LOGGER.warn("got zk proxy list:%s" % self.proxy_list)
 
     def make_connection(self):
         "Make a fresh random connection from proxy list."
